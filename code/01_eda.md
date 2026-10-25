@@ -387,13 +387,8 @@ with a capacity of 5-10 spaces.
 
 ``` r
 day_order <- c(
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday"
+  "Monday", "Tuesday", "Wednesday", "Thursday",
+  "Friday", "Saturday", "Sunday"
 )
 
 availability <- childcare_eda |>
@@ -403,8 +398,8 @@ availability <- childcare_eda |>
   ) |>
   tidyr::pivot_longer(
     cols = ends_with(".Time"),
-    names_to = c("day", ".value"),
-    names_pattern = "(.*)\\.(Start|End)\\.Time"
+    names_to = c("day", ".value", NA),
+    names_sep = "\\."
   ) |>
   mutate(
     opening = as.numeric(as.difftime(trimws(Start), units = "hours")),
@@ -448,25 +443,14 @@ ggplot(
   aes(x = hour, y = day, fill = percent_open)
 ) +
   geom_tile(color = "white", linewidth = 0.3) +
-  facet_wrap(
-  ~ setting,
-  ncol = 1,
-  strip.position = "top"
-) +
+  facet_wrap(~ setting, ncol = 1) +
   scale_x_continuous(
     breaks = seq(0, 23, 2),
-    expand = c(0, 0)) +
+    expand = c(0, 0)
+  ) +
   scale_y_discrete(
     limits = rev(day_order),
-    labels = rev(c(
-      "Mon", 
-      "Tue", 
-      "Wed", 
-      "Thu", 
-      "Fri", 
-      "Sat", 
-      "Sun")
-      ),
+    labels = function(x) substr(x, 1, 3),
     drop = FALSE
   ) +
   scale_fill_gradient(
@@ -476,15 +460,18 @@ ggplot(
     na.value = "grey95"
   ) +
   guides(
-    fill = guide_colorbar(direction = "horizontal", title.position = "top", title.hjust = 0
+    fill = guide_colorbar(
+      direction = "horizontal",
+      title.position = "top",
+      title.hjust = 0
     )
   ) +
   labs(
     title = "Weekly Childcare Availability",
     subtitle = "By MDPS program setting",
-    x = "Hour of day",
+    x = "Time of day",
     y = NULL,
-    fill = "Open Programs Precentage",
+    fill = "% Of Open Programs",
     caption = paste0(
       "Only program-days with usable opening and closing times are included.\n",
       "Grey represents both unschedule information and times.\n",
@@ -496,18 +483,11 @@ ggplot(
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text.x = element_text(
-      face = "bold",
-      hjust = 0,
-      size = 12),
+      face = "bold", hjust = 0, size = 12),
     plot.title.position = "plot",
     plot.title = element_text(
-      face = "bold",
-      size = 20,
-      color = "navy"
-    ),
-    plot.subtitle = element_text(
-      margin = margin(b = 35)
-    ),
+      face = "bold", size = 20, color = "navy"),
+    plot.subtitle = element_text(margin = margin(b = 35)),
     legend.position = "inside",
     legend.position.inside = c(1, 1.06),
     legend.justification = c(1, 0),
@@ -517,3 +497,129 @@ ggplot(
 ```
 
 ![](01_eda_files/figure-commonmark/heatmap_program-avaibility-1.png)
+
+``` r
+availability |>
+  mutate(
+    day_group = ifelse(
+      day %in% c("Saturday", "Sunday"),
+      "Weekends",
+      "Weekdays"
+    )
+  ) |>
+  group_by(setting, day_group, hour) |>
+  summarise(
+    percent_open = mean(percent_open, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = hour, y = percent_open, color = setting)) +
+  geom_line(linewidth = 1, na.rm = TRUE) +
+  facet_wrap(~ day_group) +
+  scale_x_continuous(
+    breaks = seq(0, 23, 4),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 25)
+  ) +
+  scale_color_manual(
+  values = colorRampPalette(c("navy", "#808000"))(
+    dplyr::n_distinct(availability$setting)
+  )
+) +
+  labs(
+    title = "Weekday and Weekend Childcare Availability",
+    subtitle = "By MDPS program setting",
+    x = "Time Of Day",
+    y = "% of Open Programs",
+    color = NULL,
+    caption = paste0(
+      "Daily percentages are averaged equally within weekdays and weekends; missing days are excluded.\n",
+      "Only program-days with usable opening and closing times are included.\n",
+      "Source: MDPS Early Childhood dataset (2026)."
+    )
+  ) +
+  theme_cowplot() +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", hjust = 0, size = 12),
+    plot.title.position = "plot",
+    plot.title = element_text(face = "bold", size = 20, color = "navy"),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0)
+  ) +
+  guides(color = guide_legend(ncol = 2))
+```
+
+![](01_eda_files/figure-commonmark/availability-weekdays-weekends-1.png)
+
+``` r
+program_setting_chart <- childcare_eda |>
+  filter(!is.na(zipcode)) |>
+  ggplot(
+    aes(
+      x = factor(zipcode),
+      fill = gen_program_setting_detail
+    )
+  ) +
+  geom_bar(position = "fill")
+```
+
+``` r
+program_setting_chart +
+  scale_y_continuous(
+    labels = scales::percent,
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  scale_fill_manual(
+  values = colorRampPalette(c("navy", "grey95"))(
+    dplyr::n_distinct(childcare_eda$gen_program_setting_detail)
+  )
+) +
+  labs(
+    x = "ZIP code",
+    y = NULL,
+    fill = NULL,
+    title = "Childcare Program Settings by ZIP Code",
+    subtitle = "Share of program records in each setting",
+    caption = "Source: MDPS Early Childhood dataset (2026)."
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = "black"),
+    plot.title.position = "plot",
+    plot.title = element_text(face = "bold", size = 20, color = "navy"),
+    plot.caption.position = "plot",
+    plot.caption = element_text(
+      hjust = 0,
+      margin = margin(t = 8)
+    ),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.justification = c(1, 0.95),
+    legend.key.width = grid::unit(1.5, "lines"),
+    legend.key.height = grid::unit(1, "lines"),
+    legend.key.spacing.y = grid::unit(0.1, "lines")
+  )
+```
+
+![](01_eda_files/figure-commonmark/program-setting-share-chart-1.png)
+
+Looking through this, I’m becoming more interested in the relationship
+between program setting and opertaing schedules. Regestered family
+childcare homes make up the largest group of records, followed by
+licensed childcare centers. Among programs with capacity of 300 or less,
+those reporting weekend operation have a lower average capacity than
+those reporting weekday operation, around 15 spaces compared with 28. I
+want to explore whether differences in program settings help explain
+that pattern. These results describe reported programs and schedules,
+though, rather than available openings or whether childcare meets local
+demand. I steped back and took time to develop the last three charts to
+have a full picture; Program by zipcodes shows the disterbution of
+programs in each zip. The other two are displaying the same thing in
+different ways, i like the heatmap more but think the variation is truly
+seen in the faceted line chart.
