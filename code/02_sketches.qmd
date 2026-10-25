@@ -4,11 +4,15 @@ author: Keaton Green
 format: gfm
 ---
 
-# Sketches
+# MDPS Early Childhood Development
 
 In my EDA, i had started the comparison of childcare capacity across zipcode, this let me examine more in depth the difference between program settings and their operating schedules. With that information i was able to sketch out the next steps,
 
 My main question is how do reported childcare schedules form MDPS schedules differ across settings, especially between weekends and weekdays? I also like the idea of pairing these with zipcode comparisons to show the mix of program settings as they vary across places.
+
+**Outside Observer,**
+
+Emily DeMarinas, Public Policy UMBC. Was the one who provided the data for her work for District 9 where they planned to use the data for analysis. When doing the spatial analysis this will be the area of interest.
 
 ![Sketch 3](../docs/Sketch_3.jpeg)
 
@@ -41,7 +45,7 @@ childcare_eda <- read.csv(
 
 These are the libraries needed, we added library(cowplot) to further develop the layout of the charts from https://cran.r-project.org/web/packages/cowplot/index.html. Cowplot is designed for structuring and organizing the layouts, the usecase here was to allow the placement of the legend in specific locations,in the Weekly Childcare Availability chart it placed the legend to the right of the title instead of stacking them.
 
-# Chart 1
+# Chart 1, Stacked Bar Chart
 
 ```{r}
 #| label: program-setting-share-chart
@@ -105,36 +109,41 @@ This chart is important for its geographic context, i would want to add program 
 
 **Notes from outsiders view,**
 
-# Chart 2
+> I assume at some point in narrative you'll give a bried overview of setting types, that'd be helpful
+>
+> I might also change the color of the registered home bar. upon first glance it looks blank
+>
+> The comparison between the Registered Family homes comparison to the others is not apparent i think the color is why.
+>
+> I didn't even see the white space i the legend i couldn't tell that those weren't blank.
+
+# Chart 2, Heatmap
 
 ```{r, echo=TRUE, results='hold'}
-#| label: heatmap_program-avaibility-setup
-
-#Weelky analysis setup. 
-
-day_order <- c(
-  "Monday", "Tuesday", "Wednesday", "Thursday",
-  "Friday", "Saturday", "Sunday"
-)
+#| label: heatmap-program-availability-setup
 
 availability <- childcare_eda |>
-  select(
+  dplyr::select(
     setting = gen_program_setting_detail,
-    ends_with(".Time")
+    dplyr::ends_with(".Time")
   ) |>
   tidyr::pivot_longer(
-    cols = ends_with(".Time"),
+    cols = dplyr::ends_with(".Time"),
     names_to = c("day", ".value", NA),
     names_sep = "\\."
   ) |>
-  mutate(
-    opening = as.numeric(as.difftime(trimws(Start), units = "hours")),
-    closing = as.numeric(as.difftime(trimws(End), units = "hours")),
+  dplyr::mutate(
+    opening = as.numeric(
+      as.difftime(trimws(Start), units = "hours")
+    ),
+    closing = as.numeric(
+      as.difftime(trimws(End), units = "hours")
+    ),
     day = factor(day, levels = day_order)
   ) |>
   tidyr::drop_na(opening, closing) |>
   tidyr::uncount(24, .id = "hour") |>
-  mutate(
+  dplyr::mutate(
     hour = hour - 1,
     open = ifelse(
       closing < opening,
@@ -142,12 +151,18 @@ availability <- childcare_eda |>
       hour >= opening & hour < closing
     )
   ) |>
-  group_by(setting, day, hour) |>
-  summarise(
+  dplyr::group_by(setting, day, hour) |>
+  dplyr::summarise(
     percent_open = mean(open) * 100,
     .groups = "drop"
   ) |>
   tidyr::complete(setting, day, hour = 0:23)
+
+day_order <- c(
+  "Monday", "Tuesday", "Wednesday", "Thursday",
+  "Friday", "Saturday", "Sunday"
+)
+```
 ```
 
 Here I’m getting the schedules ready for the heatmap. I put each program-day on its own row and turn the opening and closing times into numbers, so 6:30 becomes 6.5. Then I drop days without usable times instead of counting them as closed.
@@ -219,11 +234,17 @@ ggplot(
 
 The heatmap is the chart I'm the most excited about! the chart shows the full week for each setting. Each tile represents the percentage of programs with usable schedules that are open at the start of that hour. The darker the blue the more programs under the same setting that are accessible. I put the settings vertically so that they are on the same axis. This was so there is there is a easier comparison across settings while keeping the individual days visible.
 
-I like this version since i can see the schedule patterns in a more comparative way. The downside is that the exact percentages aren't being shown so while they suporttive to the context they aren't good for summarizing. The data also had 44 missing fields where the closing time wasn't attached, those were dropped when building the averages. I also manually set the weekend values for the settings that didn't have them to be equal to 0 programs available, this was done since the dataset had them as null.
+I like this version since i can see the schedule patterns in a more comparative way. The downside is that the exact percentages aren't being shown so while they supportive to the context they aren't good for summarizing. The data also had 44 missing fields where the closing time wasn't attached, those were dropped when building the averages. I also manually set the weekend values for the settings that didn't have them to be equal to 0 programs available, this was done since the dataset had them as null.
 
 **Notes from outsiders view,**
 
-# Chart 3
+> Really like this representation i think it's especially easy to interpret.
+>
+> The comparison is great and i can just imagine how useful this is, you could give to schools and parents.
+>
+> I'd love to see them for multiple places.
+
+# Chart 3, Line Chart
 
 ```{r}
 #| label: availability-weekdays-weekends
@@ -275,7 +296,7 @@ availability |>
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(face = "bold", hjust = 0, size = 12),
+    strip.text = element_text(face = "bold", hjust = 0, size = 15),
     plot.title.position = "plot",
     plot.title = element_text(face = "bold", size = 20, color = "navy"),
     legend.position = "bottom",
@@ -292,7 +313,22 @@ The percentages also need careful explanation. They only include programs with u
 
 I'm keeping this as the simpler comparison, still needing to develop this ones theme.
 
-**Notes from outsiders view,\
-\**
+**Notes from outsiders view:**
+
+> Colors hard to distinguish, would suggest using more contrasting colors or a dash line or something.
+>
+> This seems like the last one but its not showing me as much.
+>
+> Can you separate the two, weekend and weekday more? Now it looks like its a single chart with two peeks.
 
 # Footnotes
+
+For the final visualization, i will continue on with the examination of the zipcode stacked bars, the weekly heatmap, and the line chart. While more thematic aspects need to be played with the cowplot is a good starting place.
+
+The stacked bars provide context about the proportions of program settings across zipcodes. The heatmap make sa detailed weekly schedule, while the line chart summarizes those schedules to make a comparison between the settings easier. These three maps are very useful and while they can share information alone the story they tell together is intriguing. The two schedule charts overlap, but i think they serve different purposes, individual days and percentage of open programs.\
+\
+The narrative I'm finding is that reported operating schedules vary across the childcare settings. There are also differences in how the settings are represented. These charts are starting to provide the visualization of the current MDPS programs in the Baltimore area.
+
+# Notes for Adjustments,
+
+*(Notes finalized after having someone other then myself analysis the charts)*

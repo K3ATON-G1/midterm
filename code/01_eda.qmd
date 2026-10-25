@@ -31,27 +31,27 @@ figuring out which comparisons are actually useful.
 4.  Compare program counts, capacities, and program settings.
 5.  Write short notes about the patterns in the results.
 
-The original plan was to use the cities Real_Property data for a cross
-examination. When this didnt work the file was deleted but since it was
-still attached to the dataset but it was to large to push. ChatGPT was
-used to fix this issue as i needed to go type in the terminal to direcly
-interact with Bash.
-
-Prompt, I had trouble pushing my midterm repository to GitHub because
-data/Property_Information.csv was to large, exceeding GitHub’s 100 MB
-limit. I deleted it, it remained in the history of six unpushed commits
-how do i fix?
-
-ChatGPT Response, Fix by typing this in terminal, git branch
-backup-before-cleanup git reset --soft origin/main git commit -m "Add
-childcare data and updated EDA" git push origin main
-
-Starting by using https://umbc-viz.github.io/ges778/notes/05_eda.html to
-structure this EDA. First, I’m loading the packages and making a working
-copy of the data. I’m removing rows without an address so I can focus on
-the program records.
+> *The original plan was to use the cities Real_Property data for a
+> cross examination. When this didn't work the file was deleted but
+> since it was still attached to the dataset but it was to large to
+> push. ChatGPT was used to fix this issue as i needed to go type in the
+> terminal to directly interact with Bash.*
+>
+> ***Prompt,** I had trouble pushing my midterm repository to GitHub
+> because data/Property_Information.csv was to large, exceeding GitHub’s
+> 100 MB limit. I deleted it, it remained in the history of six unpushed
+> commits how do i fix?*
+>
+> ***ChatGPT Response,** Fix by typing this in terminal, git branch
+> backup-before-cleanup git reset --soft origin/main git commit -m "Add
+> childcare data and updated EDA" git push origin main*
 
 # Setup
+
+Starting by using https://umbc-viz.github.io/ges778/notes/05_eda.html to
+structure this EDA. First, step is loading the packages and making a
+working copy of the data. I’m removing rows without an address so I can
+focus on the program records.
 
 ```{r, echo=TRUE, results='hide', fig.show='hold', warning=FALSE, message=FALSE}
 #| label: setup
@@ -226,7 +226,7 @@ This is not usable but has a good example of the data i wish to continue
 examining. The curves show how program sizes are distributed within each
 zipcodes, and the vertical lines show the averages.
 
-# Schedules 
+# Schedules
 
 ```{r, echo=TRUE, results='hold'}
 #| label: Capcity_Days-Open

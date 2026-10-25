@@ -1,7 +1,7 @@
 # Sketches
 Keaton Green
 
-# Sketches
+# MDPS Early Childhood Development
 
 In my EDA, i had started the comparison of childcare capacity across
 zipcode, this let me examine more in depth the difference between
@@ -47,7 +47,7 @@ was to allow the placement of the legend in specific locations,in the
 Weekly Childcare Availability chart it placed the legend to the right of
 the title instead of stacking them.
 
-# Chart 1
+# Chart 1, Stacked Bar Chart
 
 ``` r
 program_setting_chart <- childcare_eda |>
@@ -123,7 +123,7 @@ interpret.
 
 **Notes from outsiders view,**
 
-# Chart 2
+# Chart 2, Heatmap
 
 ``` r
 #Weelky analysis setup. 
@@ -259,7 +259,7 @@ them as null.
 
 **Notes from outsiders view,**
 
-# Chart 3
+# Chart 3, Line Chart
 
 ``` r
 availability |>
@@ -337,7 +337,29 @@ missing line doesn’t mean zero programs are open.
 I’m keeping this as the simpler comparison, still needing to develop
 this ones theme.
 
-\*\*Notes from outsiders view,  
-\*\*
+**Notes from outsiders view,**
 
 # Footnotes
+
+For the final visualization, i will continue on with the examination of
+the zipcode stacked bars, the weekly heatmap, and the line chart. While
+more thematic aspects need to be played with the cowplot is a good
+starting place.
+
+The stacked bars provide context about the proportions of program
+settings across zipcodes. The heatmap make sa detailed weekly schedule,
+while the line chart summarizes those schedules to make a comparison
+between the settings easier. These three maps are very useful and while
+they can share information alone the story they tell together is
+intriguing. The two schedule charts overlap, but i think they serve
+different purposes, individual days and percentage of open programs.  
+  
+The narrative I’m finding is that reported operating schedules vary
+across the childcare settings. There are also differences in how the
+settings are represented. These charts are starting to provide the
+visualization of the current MDPS programs in the Baltimore area.
+
+# Notes for Adjustments,
+
+*(Notes finalized after having someone other then myself analysis the
+charts)*
