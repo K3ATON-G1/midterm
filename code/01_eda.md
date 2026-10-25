@@ -1,6 +1,8 @@
 # MDPS Early Childhood Development, EDA
 Keaton Green
 
+# MDPS Early Childhood Development
+
 For this project, I’m interested in how reported childcare capacity
 varies across Baltimore ZIP codes. I’ll explore the MDPS Early Childhood
 data to compare program records, program settings, and capacity for
@@ -43,18 +45,18 @@ structure this EDA. First, I’m loading the packages and making a working
 copy of the data. I’m removing rows without an address so I can focus on
 the program records.
 
+# Setup
+
 ``` r
 library(ggplot2)
 library(dplyr)
-library(cowplot)
 ```
 
 These are the libraries used if not already installed use
 install.packages().
 
 ``` r
-childcare_eda <- read.csv(
-  "../data/MDPS Early Childhood Dev.csv",
+childcare_eda <- read.csv("../data/MDPS Early Childhood Dev.csv",
   stringsAsFactors = FALSE
 ) |>
   filter(
@@ -78,6 +80,8 @@ summary(childcare_eda)
 These are quick checks of the table’s size, column names, and values.
 They help me get familiar with the data, but I need to dig deeper before
 deciding what is worth graphing.
+
+# Summary
 
 ``` r
 childcare_eda |> 
@@ -134,6 +138,8 @@ childcare_eda |>
 The count of program records in each ZIP code will be crucial. These
 counts are the number of programs offered in the zip not there capacity.
 
+# Histograms
+
 ``` r
 capacity_histogram <- function(variable, bins = 40){ 
   ggplot(childcare_eda, aes(x = {{ variable }}))+
@@ -186,6 +192,8 @@ these to check the spread of capacities and see whether a few large
 programs stand out from the smaller ones. Missing values are left out of
 the histograms.
 
+# Zipcodes
+
 ``` r
 # https://umbc-viz.github.io/ges778/extras/summarizing.html
 
@@ -195,14 +203,12 @@ programs_zip <- childcare_eda |>
     !is.na(total_capacity_1),
     total_capacity_1 <= 300
   ) |>
-  dplyr::mutate(
-    zipcode = as.character(zipcode)
+  dplyr::mutate(zipcode = as.character(zipcode)
   )
 
 zip_avg <- programs_zip |>
   dplyr::group_by(zipcode) |>
-  dplyr::summarise(
-    capacity_mean = mean(total_capacity_1)
+  dplyr::summarise(capacity_mean = mean(total_capacity_1)
   )
 
 zip_avg
@@ -228,11 +234,9 @@ capacity. I used zipcodes as the category since it was the best field to
 aggregate too. I would’ve preferred to use neighborhoods and if i was to
 develop further this would be the way.
 
-If doing spatial analysis this can be developed further.
-
-The product of this gives the average program capacity for each zipcode.
-These averages can develope a solid comparison of program acessibility
-over space.
+If doing spatial analysis this can be developed further. The product of
+this gives the average program capacity for each zipcode. These averages
+can developed a solid comparison of program accessibility over space.
 
 ``` r
 ggplot(
@@ -269,6 +273,8 @@ ggplot(
 This is not usable but has a good example of the data i wish to continue
 examining. The curves show how program sizes are distributed within each
 zipcodes, and the vertical lines show the averages.
+
+# Schedules
 
 ``` r
 program_day <- childcare_eda |>
@@ -344,10 +350,9 @@ made.
 Before i started the analysis here in R i spent time making columns in
 the table placing the days in the DAY.Open columns. I marked the days
 they were open as yes/no based off if they gave a times for when
-open/closed on that day.
-
-While not a chart this is showing a curve that drops during the skews
-sligly in the middle of the week then drops off during the weekend.
+open/closed on that day. While not a chart this is showing a curve that
+drops during the skews slightly in the middle of the week then drops off
+during the weekend.
 
 ``` r
 ggplot(
@@ -375,185 +380,15 @@ ggplot(
 This chart compares the sizes of childcare programs open on each day.
 The x-axis shows reported capacity, the colors represent different days,
 and the vertical lines show each day’s average program capacity. Its use
-case seems limited as the data is so clustered the visualization isnt
+case seems limited as the data is so clustered the visualization isn’t
 great.
 
 Density shows where program sizes are concentrated. Using the capacity
-we can find the averages for each day.
+we can find the averages for each day.The curves here are the percentage
+of programs capacity on the different days. The massive spike shows that
+on Saturday has 47% of its programs with a capacity of 5-10 spaces.
 
-The curves here are the percentage of programs capacity on the different
-days. The massive spike shows that on saturday has 47% of its programs
-with a capacity of 5-10 spaces.
-
-``` r
-day_order <- c(
-  "Monday", "Tuesday", "Wednesday", "Thursday",
-  "Friday", "Saturday", "Sunday"
-)
-
-availability <- childcare_eda |>
-  select(
-    setting = gen_program_setting_detail,
-    ends_with(".Time")
-  ) |>
-  tidyr::pivot_longer(
-    cols = ends_with(".Time"),
-    names_to = c("day", ".value", NA),
-    names_sep = "\\."
-  ) |>
-  mutate(
-    opening = as.numeric(as.difftime(trimws(Start), units = "hours")),
-    closing = as.numeric(as.difftime(trimws(End), units = "hours")),
-    day = factor(day, levels = day_order)
-  ) |>
-  tidyr::drop_na(opening, closing) |>
-  tidyr::uncount(24, .id = "hour") |>
-  mutate(
-    hour = hour - 1,
-    open = ifelse(
-      closing < opening,
-      hour >= opening | hour < closing,
-      hour >= opening & hour < closing
-    )
-  ) |>
-  group_by(setting, day, hour) |>
-  summarise(
-    percent_open = mean(open) * 100,
-    .groups = "drop"
-  ) |>
-  tidyr::complete(setting, day, hour = 0:23)
-```
-
-Here I’m getting the schedules ready for the heatmap. I put each
-program-day on its own row and turn the opening and closing times into
-numbers, so 6:30 becomes 6.5. Then I drop days without usable times
-instead of counting them as closed.
-
-Next, I make one row for each hour from 0 to 23 and check whether the
-program is open at the start of that hour, including schedules that go
-past midnight. I group these checks by setting, day, and hour, then
-average them to get the percentage open. This follows the
-grouped-average approach from the course notes. Finally, I add missing
-combinations back so every setting has a full week displayed, while
-keeping those values missing.
-
-``` r
-ggplot(
-  availability,
-  aes(x = hour, y = day, fill = percent_open)
-) +
-  geom_tile(color = "white", linewidth = 0.3) +
-  facet_wrap(~ setting, ncol = 1) +
-  scale_x_continuous(
-    breaks = seq(0, 23, 2),
-    expand = c(0, 0)
-  ) +
-  scale_y_discrete(
-    limits = rev(day_order),
-    labels = function(x) substr(x, 1, 3),
-    drop = FALSE
-  ) +
-  scale_fill_gradient(
-    low = "grey95",
-    high = "navy",
-    limits = c(0, 100),
-    na.value = "grey95"
-  ) +
-  guides(
-    fill = guide_colorbar(
-      direction = "horizontal",
-      title.position = "top",
-      title.hjust = 0
-    )
-  ) +
-  labs(
-    title = "Weekly Childcare Availability",
-    subtitle = "By MDPS program setting",
-    x = "Time of day",
-    y = NULL,
-    fill = "% Of Open Programs",
-    caption = paste0(
-      "Only program-days with usable opening and closing times are included.\n",
-      "Grey represents both unschedule information and times.\n",
-      "Source: MDPS Early Childhood dataset (2026)."
-    )
-  ) +
-  theme_cowplot() +
-  theme(
-    panel.grid = element_blank(),
-    strip.background = element_blank(),
-    strip.text.x = element_text(
-      face = "bold", hjust = 0, size = 12),
-    plot.title.position = "plot",
-    plot.title = element_text(
-      face = "bold", size = 20, color = "navy"),
-    plot.subtitle = element_text(margin = margin(b = 35)),
-    legend.position = "inside",
-    legend.position.inside = c(1, 1.06),
-    legend.justification = c(1, 0),
-    legend.background = element_blank(),
-    plot.caption = element_text(hjust = 0)
-  )
-```
-
-![](01_eda_files/figure-commonmark/heatmap_program-avaibility-1.png)
-
-``` r
-availability |>
-  mutate(
-    day_group = ifelse(
-      day %in% c("Saturday", "Sunday"),
-      "Weekends",
-      "Weekdays"
-    )
-  ) |>
-  group_by(setting, day_group, hour) |>
-  summarise(
-    percent_open = mean(percent_open, na.rm = TRUE),
-    .groups = "drop"
-  ) |>
-  ggplot(aes(x = hour, y = percent_open, color = setting)) +
-  geom_line(linewidth = 1, na.rm = TRUE) +
-  facet_wrap(~ day_group) +
-  scale_x_continuous(
-    breaks = seq(0, 23, 4),
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    limits = c(0, 100),
-    breaks = seq(0, 100, 25)
-  ) +
-  scale_color_manual(
-  values = colorRampPalette(c("navy", "#808000"))(
-    dplyr::n_distinct(availability$setting)
-  )
-) +
-  labs(
-    title = "Weekday and Weekend Childcare Availability",
-    subtitle = "By MDPS program setting",
-    x = "Time Of Day",
-    y = "% of Open Programs",
-    color = NULL,
-    caption = paste0(
-      "Daily percentages are averaged equally within weekdays and weekends; missing days are excluded.\n",
-      "Only program-days with usable opening and closing times are included.\n",
-      "Source: MDPS Early Childhood dataset (2026)."
-    )
-  ) +
-  theme_cowplot() +
-  theme(
-    panel.grid = element_blank(),
-    strip.background = element_blank(),
-    strip.text = element_text(face = "bold", hjust = 0, size = 12),
-    plot.title.position = "plot",
-    plot.title = element_text(face = "bold", size = 20, color = "navy"),
-    legend.position = "bottom",
-    plot.caption = element_text(hjust = 0)
-  ) +
-  guides(color = guide_legend(ncol = 2))
-```
-
-![](01_eda_files/figure-commonmark/availability-weekdays-weekends-1.png)
+# Program Settings
 
 ``` r
 program_setting_chart <- childcare_eda |>
@@ -565,20 +400,9 @@ program_setting_chart <- childcare_eda |>
     )
   ) +
   geom_bar(position = "fill")
-```
 
-``` r
 program_setting_chart +
-  scale_y_continuous(
-    labels = scales::percent,
-    expand = expansion(mult = c(0, 0.05))
-  ) +
-  guides(fill = guide_legend(reverse = TRUE)) +
-  scale_fill_manual(
-  values = colorRampPalette(c("navy", "grey95"))(
-    dplyr::n_distinct(childcare_eda$gen_program_setting_detail)
-  )
-) +
+  scale_y_continuous(labels = scales::percent) +
   labs(
     x = "ZIP code",
     y = NULL,
@@ -586,31 +410,15 @@ program_setting_chart +
     title = "Childcare Program Settings by ZIP Code",
     subtitle = "Share of program records in each setting",
     caption = "Source: MDPS Early Childhood dataset (2026)."
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_line(color = "black"),
-    plot.title.position = "plot",
-    plot.title = element_text(face = "bold", size = 20, color = "navy"),
-    plot.caption.position = "plot",
-    plot.caption = element_text(
-      hjust = 0,
-      margin = margin(t = 8)
-    ),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.justification = c(1, 0.95),
-    legend.key.width = grid::unit(1.5, "lines"),
-    legend.key.height = grid::unit(1, "lines"),
-    legend.key.spacing.y = grid::unit(0.1, "lines")
   )
 ```
 
 ![](01_eda_files/figure-commonmark/program-setting-share-chart-1.png)
 
+# Footnotes
+
 Looking through this, I’m becoming more interested in the relationship
-between program setting and opertaing schedules. Regestered family
+between program setting and operating schedules. Registered family
 childcare homes make up the largest group of records, followed by
 licensed childcare centers. Among programs with capacity of 300 or less,
 those reporting weekend operation have a lower average capacity than
@@ -618,8 +426,4 @@ those reporting weekday operation, around 15 spaces compared with 28. I
 want to explore whether differences in program settings help explain
 that pattern. These results describe reported programs and schedules,
 though, rather than available openings or whether childcare meets local
-demand. I steped back and took time to develop the last three charts to
-have a full picture; Program by zipcodes shows the disterbution of
-programs in each zip. The other two are displaying the same thing in
-different ways, i like the heatmap more but think the variation is truly
-seen in the faceted line chart.
+demand.
