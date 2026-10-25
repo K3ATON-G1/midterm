@@ -4,8 +4,253 @@ author: Your name
 format: gfm
 ---
 
+
 ```{r}
 #| label: setup
+#| label: setup
 
-# 
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(cowplot)
+
+# Loading the childcare table and removing the footnote rows without addresses.
+
+childcare_eda <- read.csv(
+  "../data/MDPS Early Childhood Dev.csv",
+  stringsAsFactors = FALSE
+) |>
+  filter(
+    !is.na(address),
+    address != ""
+  )
+
 ```
+```{r}
+#| label: program-setting-share-setup
+
+program_setting_chart <- childcare_eda |>
+  filter(!is.na(zipcode)) |>
+  ggplot(
+    aes(
+      x = factor(zipcode),
+      fill = gen_program_setting_detail
+    )
+  ) +
+  geom_bar(position = "fill")
+```
+
+```{r}
+#| label: program-setting-share-chart
+#| fig-width: 10
+#| fig-height: 7
+
+program_setting_chart +
+  scale_y_continuous(
+    labels = scales::percent,
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  scale_fill_manual(
+  values = colorRampPalette(c("navy", "grey95"))(
+    dplyr::n_distinct(childcare_eda$gen_program_setting_detail)
+  )
+) +
+  labs(
+    x = "ZIP code",
+    y = NULL,
+    fill = NULL,
+    title = "Childcare Program Settings by ZIP Code",
+    subtitle = "Share of program records in each setting",
+    caption = "Source: MDPS Early Childhood dataset (2026)."
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = "black"),
+    plot.title.position = "plot",
+    plot.title = element_text(face = "bold", size = 20, color = "navy"),
+    plot.caption.position = "plot",
+    plot.caption = element_text(
+      hjust = 0,
+      margin = margin(t = 8)
+    ),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.justification = c(1, 0.95),
+    legend.key.width = grid::unit(1.5, "lines"),
+    legend.key.height = grid::unit(1, "lines"),
+    legend.key.spacing.y = grid::unit(0.1, "lines")
+  )
+```
+Do percentages help compare the mix of settings? Does hiding differences in total program counts cause confusion?
+
+The stackbar i made in the EDA has a neat comparison, you could see that about half of the entire chart was under 'Registered Family Child Care Home'. Here i changed the color of that one to grey and the rest to a blue. What this gives us is a chart that shows across the majority of zipcodes 'Registered Family Child Care Home' dominate.
+
+```{r, echo=TRUE, results='hold'}
+#| label: heatmap_program-avaibility-setup
+
+day_order <- c(
+  "Monday", "Tuesday", "Wednesday", "Thursday",
+  "Friday", "Saturday", "Sunday"
+)
+
+availability <- childcare_eda |>
+  select(
+    setting = gen_program_setting_detail,
+    ends_with(".Time")
+  ) |>
+  tidyr::pivot_longer(
+    cols = ends_with(".Time"),
+    names_to = c("day", ".value", NA),
+    names_sep = "\\."
+  ) |>
+  mutate(
+    opening = as.numeric(as.difftime(trimws(Start), units = "hours")),
+    closing = as.numeric(as.difftime(trimws(End), units = "hours")),
+    day = factor(day, levels = day_order)
+  ) |>
+  tidyr::drop_na(opening, closing) |>
+  tidyr::uncount(24, .id = "hour") |>
+  mutate(
+    hour = hour - 1,
+    open = ifelse(
+      closing < opening,
+      hour >= opening | hour < closing,
+      hour >= opening & hour < closing
+    )
+  ) |>
+  group_by(setting, day, hour) |>
+  summarise(
+    percent_open = mean(open) * 100,
+    .groups = "drop"
+  ) |>
+  tidyr::complete(setting, day, hour = 0:23)
+```
+Here I’m getting the schedules ready for the heatmap. I put each program-day on its own row and turn the opening and closing times into numbers, so 6:30 becomes 6.5. Then I drop days without usable times instead of counting them as closed.
+
+Next, I make one row for each hour from 0 to 23 and check whether the program is open at the start of that hour, including schedules that go past midnight. I group these checks by setting, day, and hour, then average them to get the percentage open. This follows the grouped-average approach from the course notes. Finally, I add missing combinations back so every setting has a full week displayed, while keeping those values missing.
+
+```{r, echo=TRUE, results='hold'}
+#| label: heatmap_program-avaibility
+#| fig-width: 9
+#| fig-height: 10
+
+ggplot(
+  availability,
+  aes(x = hour, y = day, fill = percent_open)
+) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  facet_wrap(~ setting, ncol = 1) +
+  scale_x_continuous(
+    breaks = seq(0, 23, 2),
+    expand = c(0, 0)
+  ) +
+  scale_y_discrete(
+    limits = rev(day_order),
+    labels = function(x) substr(x, 1, 3),
+    drop = FALSE
+  ) +
+  scale_fill_gradient(
+    low = "grey95",
+    high = "navy",
+    limits = c(0, 100),
+    na.value = "grey95"
+  ) +
+  guides(
+    fill = guide_colorbar(
+      direction = "horizontal",
+      title.position = "top",
+      title.hjust = 0
+    )
+  ) +
+  labs(
+    title = "Weekly Childcare Availability",
+    subtitle = "By MDPS program setting",
+    x = "Time of day",
+    y = NULL,
+    fill = "% Of Open Programs",
+    caption = paste0(
+      "Only program-days with usable opening and closing times are included.\n",
+      "Grey represents both unschedule information and times.\n",
+      "Source: MDPS Early Childhood dataset (2026)."
+    )
+  ) +
+  theme_cowplot() +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text.x = element_text(
+      face = "bold", hjust = 0, size = 12),
+    plot.title.position = "plot",
+    plot.title = element_text(
+      face = "bold", size = 20, color = "navy"),
+    plot.subtitle = element_text(margin = margin(b = 35)),
+    legend.position = "inside",
+    legend.position.inside = c(1, 1.06),
+    legend.justification = c(1, 0),
+    legend.background = element_blank(),
+    plot.caption = element_text(hjust = 0)
+  )
+```
+
+
+```{r}
+#| label: availability-weekdays-weekends
+#| fig-width: 9
+#| fig-height: 6
+
+availability |>
+  mutate(
+    day_group = ifelse(
+      day %in% c("Saturday", "Sunday"),
+      "Weekends",
+      "Weekdays"
+    )
+  ) |>
+  group_by(setting, day_group, hour) |>
+  summarise(
+    percent_open = mean(percent_open, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  ggplot(aes(x = hour, y = percent_open, color = setting)) +
+  geom_line(linewidth = 1, na.rm = TRUE) +
+  facet_wrap(~ day_group) +
+  scale_x_continuous(
+    breaks = seq(0, 23, 4),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 25)
+  ) +
+  scale_color_manual(
+  values = colorRampPalette(c("navy", "#808000"))(
+    dplyr::n_distinct(availability$setting)
+  )
+) +
+  labs(
+    title = "Weekday and Weekend Childcare Availability",
+    subtitle = "By MDPS program setting",
+    x = "Time Of Day",
+    y = "% of Open Programs",
+    color = NULL,
+    caption = paste0(
+      "Daily percentages are averaged equally within weekdays and weekends; missing days are excluded.\n",
+      "Only program-days with usable opening and closing times are included.\n",
+      "Source: MDPS Early Childhood dataset (2026)."
+    )
+  ) +
+  theme_cowplot() +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", hjust = 0, size = 12),
+    plot.title.position = "plot",
+    plot.title = element_text(face = "bold", size = 20, color = "navy"),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0)
+  ) +
+  guides(color = guide_legend(ncol = 2))
+```
+
