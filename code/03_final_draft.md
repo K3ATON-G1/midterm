@@ -181,6 +181,8 @@ program_setting_counts <- childcare_eda |>
                    .groups = "drop")
 ```
 
+add summary of setup
+
 ``` r
 mosaic_data <- program_setting_counts |> 
   dplyr::group_by(zipcode) |>
@@ -198,7 +200,10 @@ program_setting_chart <- ggplot(data = mosaic_data) +
                   weight = weight),
               color = "white",
               offset = 0) +
-  rcartocolor::scale_fill_carto_d(palette = "Bold") +
+  scale_fill_manual(
+    values = colorRampPalette(c("#B39DDB", "navy"))(
+      dplyr::n_distinct(mosaic_data$gen_program_setting_detail))
+  ) +
   labs(
     title = "Childcare Program Settings by Zipcodes",
     subtitle = "Wider zipcode sections contain more recorded programs; color show the composition of program settings. Parentheses after the zipcode show the program record counts.",
@@ -249,8 +254,12 @@ ggsave(
 )
 ```
 
+summary
+
+summary of setup
+
 <img
 src="03_final_draft_files/figure-commonmark/heatmap_program-avaibility-1.png"
 data-fig-alt="The Heatmaps here show the reported childcare opertaing schedules by program setting across Baltimore area zip codes. Each panel shows Monday-Sunday and hours from 0-23. Darker blues indicate a higher precentage of programs with useable schedules open at the start of the hour. Lighter grey represents zero precent open." />
 
-  
+summary  

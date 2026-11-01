@@ -1,0 +1,360 @@
+---
+title: Final draft
+author: Keaton Green
+format: gfm
+---
+
+# MDPS Early Childhood Development:
+
+## Childcare Program Settings and Weekly Schedules
+
+Childcare operating schedules can shape a family's daily routine. This project examines how reported schedules differ across childcare program settings in the Baltimore areas Zipcodes using Maryland Department of Public Safety data (MDPS). The core understanding is built off understanding the mix of program settings across the zipcodes.
+
+The charts describe program records and reported operating schedules. There are not measurements of program vacancies, enrollment, or childcare capacity being used. The MDPS Early Childhood Development dataset was supplied in 2026, the collection and update dates were not included.
+
+# Main Setup
+
+This chunk is the data loading code for the project.
+
+```{r}
+#| label: setup
+#| echo: false
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+    #If ggmosiac isnt downlaoed use this to get it pulling from github.
+        #install.packages("pak")
+        #pak::pkg_install("haleyjeppson/ggmosaic")
+library(ggmosaic)
+
+      childcare_eda <- read.csv(
+        "../data/MDPS Early Childhood Dev.csv",
+        stringsAsFactors = FALSE
+      ) |>
+        filter(
+          !is.na(address),
+          address != ""
+        )
+
+      setting_colors <- c(
+        "Large Family Child Care Home" = "#C4B0E2",
+        "Letter of Compliance Facility" = "#A08DCF",
+        "Licensed Child Care Center" = "#7B6BBD",
+        "Pre-K" = "#584BAA",
+        "Registered Family Child Care Home" = "#352B95"
+      )
+
+# mosaic-setup
+
+      program_setting_counts <- childcare_eda |>
+        dplyr::filter(!is.na(zipcode),
+                      trimws(as.character(zipcode)) !="",
+                      !is.na(gen_program_setting_detail),
+                      gen_program_setting_detail !=""
+        ) |>
+        dplyr::mutate(zipcode = factor(zipcode),
+                      gen_program_setting_detail = factor(gen_program_setting_detail)
+        ) |> 
+        dplyr::group_by(zipcode, gen_program_setting_detail) |>
+        dplyr::summarise(program_records = dplyr::n(),
+                         .groups = "drop")
+
+# heatmap-setup 
+      
+      day_order <- c(
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"
+      )
+      availability <- childcare_eda |>
+        dplyr::select(
+          setting = gen_program_setting_detail,
+          dplyr::ends_with(".Time")
+        ) |>
+        tidyr::pivot_longer(
+          cols = dplyr::ends_with(".Time"),
+          names_to = c("day", ".value", NA),
+          names_sep = "\\."
+        ) |>
+        dplyr::mutate(
+          opening = as.numeric(as.difftime(trimws(Start), units = "hours")
+          ),
+          closing = as.numeric(as.difftime(trimws(End), units = "hours")
+          ),
+          day = factor(day, levels = day_order)
+        ) |>
+        tidyr::drop_na(opening, closing) |>
+        tidyr::uncount(24, .id = "hour") |>
+        dplyr::mutate(hour = hour - 1,
+                      open = ifelse(
+                        closing < opening,
+                        hour >= opening | hour < closing,
+                        hour >= opening & hour < closing
+                      )
+        ) |>
+        dplyr::group_by(setting, day, hour) |>
+        dplyr::summarise(
+          percent_open = mean(open) * 100,
+          .groups = "drop"
+        ) |>
+        tidyr::complete(setting, day, hour = 0:23)
+
+# Lne-chart-setup
+
+      availability_groups_day <- availability |>
+        mutate(
+          day_group = ifelse(
+            day %in% c("Saturday", "Sunday"),
+            "Weekends", "Weekdays"
+          )
+        ) |>
+        group_by(setting, day_group, hour) |>
+        summarise(
+          percent_open = mean(percent_open, na.rm = TRUE),
+          .groups = "drop"
+        )
+```
+
+# Program Settings
+
+The table here summarizes the number of program records by each setting within the Zipcodes. These counts provide the context for the distribution of programs in the Zipcodes. The data has been pivoted so each zipcode is seen more then once for all the settings within it, the program records then shows the count of programs in that setting and Zipcode.
+
+```{r}
+#| label: program-setting-table
+#| echo: false
+
+program_setting_table <- childcare_eda |>
+  dplyr::filter(!is.na(gen_program_setting_detail),
+                gen_program_setting_detail != ""
+                ) |>
+  dplyr::group_by(zipcode, gen_program_setting_detail) |>
+  dplyr::summarise(program_records = dplyr::n(),
+                   .groups = "drop"
+  )|>
+  dplyr::arrange(zipcode, dplyr::desc(program_records))
+  knitr::kable(program_setting_table, format = "pipe", col.names = c("Zipcodes", "Program Settings", "Program Records"),
+               caption = "Program records by Zipcode and setting.Source: MDPS Early Childhood Development dataset, 2026."
+  )
+```
+
+# Program Setting Across Zipcodes
+
+Thus mosaic compares the mux of childcare programs settings across The baltimore areas Zipcodes. colored segments heights show each setting's percentage within a Zip. Lables show the number of program records follwoed by the zip code. The bigger sections in the chart are meant to represent the zicosdes with the larger protion of programs, though for readablity the Zipcodes with fewer then 12 records were enla
+
+```{r}
+#| label: mosaic-chart
+#| fig-height: 8
+#| fig-width: 14
+#| fig-alt: "Mosaic chart of childcare settings across Baltimore area zip Codes. Wider Zip sections represnet more program records. Colors and there heights show the percentage of setting type within each zipcode. The width represents the number of records in each zipcode setting combined, this does not show childcare capacity or vacancies."
+
+mosaic_data <- program_setting_counts |> 
+  dplyr::group_by(zipcode) |>
+  dplyr::mutate(total = sum(program_records),
+                weight = program_records / total * pmax(total, 12),
+                zip_label = paste0(total, " in ", zipcode)
+  ) |>
+  dplyr::ungroup() |>
+  dplyr::arrange(zipcode) |>
+  dplyr::mutate(zip_label = factor(zip_label, levels = unique(zip_label))
+                )
+program_setting_chart <- ggplot(data = mosaic_data) +
+  geom_mosaic(aes(x = product(zip_label),
+                  fill = gen_program_setting_detail,
+                  weight = weight),
+              color = "white",
+              offset = 0) +
+  scale_fill_manual(
+    values = colorRampPalette(c("#B39DDB", "navy"))(
+      dplyr::n_distinct(mosaic_data$gen_program_setting_detail))
+  ) +
+  labs(
+    title = "Childcare Program Settings by Zipcodes",
+    subtitle = "Wider zipcode sections contain more recorded programs; color show the composition of program settings. Parentheses after the zipcode show the program record counts.",
+    x = "Zipcodes",
+    y = NULL,
+    fill = NULL,
+    caption = paste0(
+      "ZIP width represents total program records; colored segment height shows share within ZIP.\n",
+      "Counts represent program records, not childcare capacity or available places.\n",
+      "Source: MDPS Early Childhood Development dataset (2026)."
+    )
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid = element_blank(),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(
+      angle = 90,
+      hjust = 1,
+      vjust = 0.5,
+      face = "bold"
+    ),
+    plot.title = element_text(face = "bold", color = "navy"),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0)
+  ) +
+  guides(fill = guide_legend(nrow = 1))
+
+program_setting_chart
+
+ggsave(
+  "../plots/green-program-settings-and-counts-by-zip.png",
+  plot = program_setting_chart,
+  width = 18,
+  height = 10,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+summary
+
+summary of setup
+
+```{r}
+#| label: heatmap_program-avaibility
+#| echo: false 
+#| fig-width: 9
+#| fig-height: 10
+#| fig-alt: "The Heatmaps here show the reported childcare opertaing schedules by program setting across Baltimore area zip codes. Each panel shows Monday-Sunday and hours from 0-23. Darker blues indicate a higher precentage of programs with useable schedules open at the start of the hour. Lighter grey represents zero precent open."
+
+availability_heatmap <- ggplot(
+  availability,
+  aes(x = hour, y = day, fill = percent_open)
+) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  facet_wrap(~ setting, ncol = 1) +
+  scale_x_continuous(
+    breaks = seq(0, 23, 2),
+    expand = c(0, 0)
+  ) +
+  scale_y_discrete(
+    limits = rev(day_order),
+    labels = function(x) substr(x, 1, 3),
+    drop = FALSE
+  ) +
+  scale_fill_gradient(
+    low = "grey95",
+    high = "navy",
+    limits = c(0, 100),
+    na.value = "grey95"
+  ) +
+  guides(
+    fill = guide_colorbar(
+      direction = "horizontal",
+      title.position = "top",
+      title.hjust = 0
+    )
+  ) +
+  labs(
+    title = "Weekly Childcare Availability",
+    subtitle = "By MDPS program setting",
+    x = "Time of day",
+    y = NULL,
+    fill = "% Of Open Programs",
+    caption = paste0(
+      "Only program-days with usable opening and closing times are included. Grey represents both unschedule information and times.\n",
+      "Source: MDPS Early Childhood dataset (2026)."
+    )
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text.x = element_text(
+      face = "bold", hjust = 0, size = 12),
+    plot.title.position = "plot",
+    plot.title = element_text(
+      face = "bold", size = 20, color = "navy"),
+    plot.subtitle = element_text(margin = margin(b = 35)),
+    legend.position = "inside",
+    legend.position.inside = c(1, 1.06),
+    legend.justification = c(1, 0),
+    legend.background = element_blank(),
+    plot.caption = element_text(hjust = 0)
+  )
+
+availability_heatmap
+
+ggsave(
+  "../plots/green-weekly-childcare-availability.png",
+  plot = availability_heatmap,
+  width = 9,
+  height = 10,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+summary\
+
+```{r}
+#| label: availability-weekdays-weekends
+#| echo: false
+#| fig-width: 14
+#| fig-height: 8
+#| fig-alt: "Here are two line charts that compare avergae reported childcare avalability on weekdays and weekends across Baltimore area program settings. Color and line patterns distinguish settings. Poth parts show time of day in hour format and prencetage from 0 to 100."
+
+availability_line <- ggplot(availability_groups_day,
+                            aes(x = hour, y = percent_open, color = setting, linetype = setting)) +
+  geom_line(linewidth = 1, na.rm = TRUE) +
+  facet_wrap(~ day_group, ncol = 2) +
+  scale_x_continuous(
+    breaks = c(0, 6, 12, 18, 23),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 25),
+    labels = function(x) paste0(x, "%")
+  ) +
+  scale_color_manual( values =  setting_colors) + 
+  labs(
+    title = "Weekday and Weekend Childcare Availability",
+    subtitle = "Reported schedules by program setting across Baltimore area zipcodes.",
+    x = "Time Of Day",
+    y = "% of Open Programs",
+    color = NULL,
+    linetype = NULL,
+    caption = paste0(
+      "Daily percentages are averaged equally within weekdays and weekends; missing days are excluded. Only program-days with usable opening and closing times are included.\n",
+      "Source: MDPS Early Childhood dataset (2026)."
+    )
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_line(color = "grey90"),
+    panel.spacing.x = grid::unit(2, "lines"),
+    strip.text = element_text(
+      face = "bold", hjust = 0, size = 13
+    ),
+    plot.title.position = "plot",
+    plot.title = element_text(
+      face = "bold", size = 20, color = "navy"
+    ),
+    legend.position = "bottom",
+    legend.key.width = grid::unit(3, "lines"),
+    plot.caption = element_text(hjust = 0)
+  ) +
+    guides(
+      color = guide_legend(nrow = 1),
+      linetype = guide_legend(nrow = 1)
+    )
+  
+availability_line
+  
+  ggsave(
+    "../plots/green-weekday-weekend-availability.png",
+    plot = availability_line,
+    width = 12,
+    height = 7,
+    dpi = 300,
+    bg = "white"
+  )
+```
+
