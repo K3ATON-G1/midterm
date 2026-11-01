@@ -139,8 +139,7 @@ program_setting_chart <- ggplot() +
               dplyr::filter(alternate == 1),
             aes(xmin = left, xmax = right, ymin = -.17, ymax = 1.1),
             fill = "gray95") +
-  geom_mosaic(data = mosaic_data),
-(aes(x = product(zipcode),
+  geom_mosaic(data = mosaic_data, aes(x = product(zipcode),
                   fill = gen_program_setting_detail,
                   weight = weight
               ),
@@ -148,12 +147,23 @@ program_setting_chart <- ggplot() +
  color = "white",
  show.legend = FALSE
   ) + 
-  geam_rect(data = zip_totals|> dplyr::filter(right < .999),
+  geom_rect(data = zip_totals|> dplyr::filter(right < .999),
             aes(xmin = right - .0015,
                 xmax = right + .0015,
                 ymin = 0,
                 ymax = 1),
             fill = "white")+
+  
+  annotate("text",
+           x = c (-.015, -.035, -.015),
+           y = c(1.05, .5, -.10),
+           label = c("Program\nCount", "Setting Type %", "Zipcode"),
+           angle = c(0, 90, 0),
+           hjust = c(1, .5, 1), 
+           size = 4) +
+  mosaic_legend(setting_totals) + 
+  scale_fill_manual(values = setting_colors, guide = "none") +
+  
   
   
   scale_fill_manual(values = rcartocolor::carto_pal(
@@ -175,35 +185,22 @@ program_setting_chart <- ggplot() +
     )
   ) +
   
-  theme_minimal(base_size = 13) +
-  theme(panel.grid.major.x = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.grid.major.y = element_line(color = "grey90",
-                                          linewidth = .3),
-        axis.text.x = element_text(     
-          angle = 90,   
-          hjust = 1,    
-          vjust = 0.5,
-          size = 10),
-        plot.title.position = "plot",
-        plot.title = element_text(
-          face = "bold",
-          size = 20,
-          color = "navy"
-        ),
-        legend.position = "bottom",
-        plot.caption = element_text(hjust = 0) 
-  ) +
-  guides(fill = guide_legend(ncol = 2))
+  theme_void() +
+  theme(
+    legend.position = "none",
+    plot.caption = element_text(hjust = 0, size = 10),
+    plot.margin = margin(15, 25, 15, 25)
+  )
 
 program_setting_chart
 
 ggsave(
   "../plots/green-program-settings-and-counts-by-zip.png",
   plot = program_setting_chart,
-  width = 14,
-  height = 8,
-  dpi = 300
+  width = 18,
+  height = 10,
+  dpi = 300,
+  bg = "white"
 )
 
 ```
