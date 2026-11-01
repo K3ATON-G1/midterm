@@ -182,90 +182,28 @@ program_setting_counts <- childcare_eda |>
 ```
 
 ``` r
-mosaic_legend <-function(data) {list(
-  geom_text(data = data,
-            aes(x = .69, y = y, label = label),
-            hjust = 1, size = 3.5),
-  geom_point(data = data, aes(x = .71, y = y, fil = gen_program_setting_detail),
-             shape = 22, size = 4, stroke = 0),
-  geom_text(data = data, aes(x = .73, y = y, label = gen_program_setting_detail),
-            hjust = 0, size = 3.5)
-)}
-```
-
-``` r
 mosaic_data <- program_setting_counts |> 
   dplyr::group_by(zipcode) |>
   dplyr::mutate(total = sum(program_records),
-                display_total = pmax(total, 12),
-                weight = program_records / total * display_total) |> 
-  dplyr::ungroup()
-
-zip_totals <- mosaic_data |> 
-  dplyr::distinct(zipcode, total, display_total) |>
+                weight = program_records / total * pmax(total, 12),
+                zip_label = paste0(total, " in ", zipcode)
+  ) |>
+  dplyr::ungroup() |>
   dplyr::arrange(zipcode) |>
-  dplyr::mutate(width = display_total / sum(display_total),
-                right = cumsum(width),
-                left = right - width,
-                center = (left + right) / 2,
-                alternate = dplyr::row_number() %% 2)
-
-setting_totals <- program_setting_counts |> 
-  dplyr::group_by(gen_program_setting_detail) |>
-  dplyr::summarise(total = sum(program_records), .group = "drop") |> 
-  dplyr::arrange(dplyr::desc(total)) |>
-  dplyr::mutate(y = 1.43 - (dplyr::row_number()- 1)* .06,
-                label = paste0("Total: (", total, ")")
+  dplyr::mutate(zip_label = factor(zip_label, levels = unique(zip_label))
                 )
-
-setting_names <- sort(unique(as.character(program_setting_counts$gen_program_setting_detail)
-                             ))
-
-setting_colors <- setNames(rcartocolor::carto_pal(n = length(setting_names), name = "Bold"),setting_names)
-
-program_setting_chart <- ggplot() +
-  geom_rect(data = zip_totals |> 
-              dplyr::filter(alternate == 1),
-            aes(xmin = left, xmax = right, ymin = -.17, ymax = 1.1),
-            fill = "gray95") +
-  geom_mosaic(data = mosaic_data, aes(x = product(zipcode),
+program_setting_chart <- ggplot(data = mosaic_data) +
+  geom_mosaic(aes(x = product(zip_label),
                   fill = gen_program_setting_detail,
-                  weight = weight
-              ),
- offset = 0,
- color = "white",
- show.legend = FALSE
-  ) + 
-  geom_rect(data = zip_totals|> dplyr::filter(right < .999),
-            aes(xmin = right - .0015,
-                xmax = right + .0015,
-                ymin = 0,
-                ymax = 1),
-            fill = "white")+
-  
-  annotate("text",
-           x = c (-.015, -.035, -.015),
-           y = c(1.05, .5, -.10),
-           label = c("Program\nCount", "Setting Type %", "Zipcode"),
-           angle = c(0, 90, 0),
-           hjust = c(1, .5, 1), 
-           size = 4) +
-  mosaic_legend(setting_totals) + 
-  scale_fill_manual(values = setting_colors, guide = "none") +
-  
-  
-  
-  scale_fill_manual(values = rcartocolor::carto_pal(
-    n = dplyr::n_distinct(program_setting_counts$gen_program_setting_detail),
-    name = "Bold"
-  )
-  )+
-  
+                  weight = weight),
+              color = "white",
+              offset = 0) +
+  rcartocolor::scale_fill_carto_d(palette = "Bold") +
   labs(
-    title = " Childcare Program Settings and Counts by Zipcodes",
-    subtitle = "Wider zipcode sections contain more recorded programs; color show the composition of program settings.",
+    title = "Childcare Program Settings by Zipcodes",
+    subtitle = "Wider zipcode sections contain more recorded programs; color show the composition of program settings. Parentheses after the zipcode show the program record counts.",
     x = "Zipcodes",
-    y = "Share of Program Records within zipcodes)",
+    y = NULL,
     fill = NULL,
     caption = paste0(
       "ZIP width represents total program records; colored segment height shows share within ZIP.\n",
@@ -274,21 +212,25 @@ program_setting_chart <- ggplot() +
     )
   ) +
   
-  theme_void() +
+  theme_minimal(base_size = 13) +
   theme(
-    legend.position = "none",
-    plot.caption = element_text(hjust = 0, size = 10),
-    plot.margin = margin(15, 25, 15, 25)
-  )
-```
+    panel.grid = element_blank(),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(
+      angle = 90,
+      hjust = 1,
+      vjust = 0.5,
+      face = "bold"
+    ),
+    plot.title = element_text(face = "bold", color = "navy"),
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0)
+  ) +
+  guides(fill = guide_legend(nrow = 1))
 
-    Warning in geom_point(data = data, aes(x = 0.71, y = y, fil =
-    gen_program_setting_detail), : Ignoring unknown aesthetics: fil
-
-    Scale for fill is already present.
-    Adding another scale for fill, which will replace the existing scale.
-
-``` r
 program_setting_chart
 ```
 
@@ -306,5 +248,9 @@ ggsave(
   bg = "white"
 )
 ```
+
+<img
+src="03_final_draft_files/figure-commonmark/heatmap_program-avaibility-1.png"
+data-fig-alt="The Heatmaps here show the reported childcare opertaing schedules by program setting across Baltimore area zip codes. Each panel shows Monday-Sunday and hours from 0-23. Darker blues indicate a higher precentage of programs with useable schedules open at the start of the hour. Lighter grey represents zero precent open." />
 
   
