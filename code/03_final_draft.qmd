@@ -4,16 +4,208 @@ author: Keaton Green
 format: gfm
 ---
 
-# MDPS Early Childhood Development: 
+# MDPS Early Childhood Development:
 
 ## Childcare Program Settings and Weekly Schedules
 
-Childcare schedules and programs in Maryland Zipcodes around Baltimore City can be very fundamentally important to a family's daily routine. This project examines how reported operating schedules differ accross program settings (Not type as the overlap of program type made the data to complex). The focus here is particulary intreatsed in teh examinatipn between the weedays and the weekends. It also comapres the mix of settings across zip coddes in the Balimore area MDPS Early Childhood Development dataset.
+Childcare schedules and programs in Maryland Zipcodes around Baltimore City can be very fundamentally important to a family's daily routine. This project examines how reported operating schedules differ across program settings (Not type as the overlap of program type made the data to complex). The focus here is particularly intrested in the examination between the weekdays and the weekends. It also compares the mix of settings across zipcodes in the Baltimore area MDPS Early Childhood Development dataset.
 
-The charts describe program and reported schedules. They do not measure current vacancies, renrollement, or the actaul obained childcare places from families. The dataset for this was suppuied in 2026; the dates for the data was collected or updated was not specified.
+The charts describe program and reported schedules. They do not measure current vacancies, enrollment, or the actual obtained childcare places from families. The dataset for this was supplied in 2026; the dates for the data was collected or updated was not specified.
 
 ```{r}
 #| label: setup
 
-# 
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+childcare_eda <- read.csv(
+  "../data/MDPS Early Childhood Dev.csv",
+  stringsAsFactors = FALSE
+) |>
+  filter(
+    !is.na(address),
+    address != ""
+  )
+
+dir.create("../plots")
 ```
+
+# Overview of Program Settings
+
+The table here summarizes the number of program records in each setting, These counts provide the context for the percentage charts: a large percentage within a small setting does not necessarily show lots more programs.
+
+```{r}
+#| label: program-setting-table
+#| echo: false
+
+program_setting_table <- childcare_eda |>
+  dplyr::filter(!is.na(gen_program_setting_detail),
+                gen_program_setting_detail != ""
+                ) |>
+  dplyr::group_by(zipcode, gen_program_setting_detail) |>
+  dplyr::summarise(program_records = dplyr::n(),
+                   .groups = "drop"
+  )|>
+  dplyr::arrange(zipcode, dplyr::desc(program_records))
+  knitr::kable(program_setting_table,
+               format = "pipe",
+               col.names = c("Zipcodes", "Program Settings", "Program Records"), 
+               caption = "Program records by Zipcode and setting.\nSource: MDPS Early Childhood Development dataset."
+  )
+```
+
+# Program Setting Across Zipcodes
+
+This chart compares the share of program records belonging to each setting within each Zipcode. Each bar totals 100% , allowing for the mix to be compiled and show the comparison across places.
+
+Zipcodes with codes with very different numbers of records receive the same amount of space . The chart is showing the composition rather then the total number of programs.
+
+```{r}
+#| label: program-setting-share-vs-count-setup
+
+#If ggmosiac isnt downlaoed use this to get it pulling from github.
+#install.packages("pak")
+#pak::pkg_install("haleyjeppson/ggmosaic")
+
+library(ggmosaic)
+
+program_setting_counts <- childcare_eda |>
+  dplyr::filter(!is.na(zipcode),
+                trimws(as.character(zipcode)) !="",
+                !is.na(gen_program_setting_detail),
+                gen_program_setting_detail !=""
+                ) |>
+  dplyr::mutate(zipcode = factor(zipcode),
+                gen_program_setting_detail = factor(gen_program_setting_detail)
+                ) |> 
+  dplyr::group_by(zipcode, gen_program_setting_detail) |>
+  dplyr::summarise(program_records = dplyr::n(),
+                   .groups = "drop")
+```
+
+```{r}
+#| label: mosaic-legend
+
+mosaic_legend <-function(data) {list(
+  geom_text(data = data,
+            aes(x = .69, y = y, label = label),
+            hjust = 1, size = 3.5),
+  geom_point(data = data, aes(x = .71, y = y, fil = gen_program_setting_detail),
+             shape = 22, size = 4, stroke = 0),
+  geom_text(data = data, aes(x = .73, y = y, label = gen_program_setting_detail),
+            hjust = 0, size = 3.5)
+)}
+
+```
+
+```{r}
+#| label: program-setting-share-vs-count
+#| fig-height: 8
+#| fig-width: 14
+#| fig-alt: "Mosaic chart of childcare settings across Baltimore area zip Codes. Wider Zip sections represnet more program records. Colors and there heights show the percentage of setting type within each zipcode. The width represents the number of records in each zipcode setting combined, this does not show childcare capacity or vacancies."
+
+mosaic_data <- program_setting_counts |> 
+  dplyr::group_by(zipcode) |>
+  dplyr::mutate(total = sum(program_records),
+                display_total = pmax(total, 12),
+                weight = program_records / total * display_total) |> 
+  dplyr::ungroup()
+
+zip_totals <- mosaic_data |> 
+  dplyr::distinct(zipcode, total, display_total) |>
+  dplyr::arrange(zipcode) |>
+  dplyr::mutate(width = display_total / sum(display_total),
+                right = cumsum(width),
+                left = right - width,
+                center = (left + right) / 2,
+                alternate = dplyr::row_number() %% 2)
+
+setting_totals <- program_setting_counts |> 
+  dplyr::group_by(gen_program_setting_detail) |>
+  dplyr::summarise(total = sum(program_records), .group = "drop") |> 
+  dplyr::arrange(dplyr::desc(total)) |>
+  dplyr::mutate(y = 1.43 - (dplyr::row_number()- 1)* .06,
+                label = paste0("Total: (", total, ")")
+                )
+
+setting_names <- sort(unique(as.character(program_setting_counts$gen_program_setting_detail)
+                             ))
+
+setting_colors <- setNames(rcartocolor::carto_pal(n = length(setting_names), name = "Bold"),setting_names)
+
+program_setting_chart <- ggplot() +
+  geom_rect(data = zip_totals |> 
+              dplyr::filter(alternate == 1),
+            aes(xmin = left, xmax = right, ymin = -.17, ymax = 1.1),
+            fill = "gray95") +
+  geom_mosaic(data = mosaic_data),
+(aes(x = product(zipcode),
+                  fill = gen_program_setting_detail,
+                  weight = weight
+              ),
+ offset = 0,
+ color = "white",
+ show.legend = FALSE
+  ) + 
+  geam_rect(data = zip_totals|> dplyr::filter(right < .999),
+            aes(xmin = right - .0015,
+                xmax = right + .0015,
+                ymin = 0,
+                ymax = 1),
+            fill = "white")+
+  
+  
+  scale_fill_manual(values = rcartocolor::carto_pal(
+    n = dplyr::n_distinct(program_setting_counts$gen_program_setting_detail),
+    name = "Bold"
+  )
+  )+
+  
+  labs(
+    title = " Childcare Program Settings and Counts by Zipcodes",
+    subtitle = "Wider zipcode sections contain more recorded programs; color show the composition of program settings.",
+    x = "Zipcodes",
+    y = "Share of Program Records within zipcodes)",
+    fill = NULL,
+    caption = paste0(
+      "ZIP width represents total program records; colored segment height shows share within ZIP.\n",
+      "Counts represent program records, not childcare capacity or available places.\n",
+      "Source: MDPS Early Childhood Development dataset (2026)."
+    )
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(panel.grid.major.x = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_line(color = "grey90",
+                                          linewidth = .3),
+        axis.text.x = element_text(     
+          angle = 90,   
+          hjust = 1,    
+          vjust = 0.5,
+          size = 10),
+        plot.title.position = "plot",
+        plot.title = element_text(
+          face = "bold",
+          size = 20,
+          color = "navy"
+        ),
+        legend.position = "bottom",
+        plot.caption = element_text(hjust = 0) 
+  ) +
+  guides(fill = guide_legend(ncol = 2))
+
+program_setting_chart
+
+ggsave(
+  "../plots/green-program-settings-and-counts-by-zip.png",
+  plot = program_setting_chart,
+  width = 14,
+  height = 8,
+  dpi = 300
+)
+
+```
+
+\
