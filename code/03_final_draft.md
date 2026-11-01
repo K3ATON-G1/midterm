@@ -5,24 +5,21 @@ Keaton Green
 
 ## Childcare Program Settings and Weekly Schedules
 
-Childcare schedules and programs in Maryland Zipcodes around Baltimore
-City can be very fundamentally important to a family’s daily routine.
-This project examines how reported operating schedules differ across
-program settings (Not type as the overlap of program type made the data
-to complex). The focus here is particularly intrested in the examination
-between the weekdays and the weekends. It also compares the mix of
-settings across zipcodes in the Baltimore area MDPS Early Childhood
-Development dataset.
+Childcare operating schedules can shape a family’s daily routine. This
+project examines how reported schedules differ across childcare program
+settings in the Baltimore areas Zipcodes using Maryland Department of
+Public Safety data (MDPS). The core understanding is built off
+understanding the mix of program settings across the zipcodes.
 
-The charts describe program and reported schedules. They do not measure
-current vacancies, enrollment, or the actual obtained childcare places
-from families. The dataset for this was supplied in 2026; the dates for
-the data was collected or updated was not specified.
+The charts describe program records and reported operating schedules.
+There are not measurements of program vacancies, enrollment, or
+childcare capacity being used. The MDPS Early Childhood Development
+dataset was supplied in 2026, the collection and update dates were not
+included.
 
-``` r
-library(ggplot2)
-library(dplyr)
-```
+# Main Setup
+
+This chunk is the data loading code for the project.
 
 
     Attaching package: 'dplyr'
@@ -35,29 +32,14 @@ library(dplyr)
 
         intersect, setdiff, setequal, union
 
-``` r
-library(tidyr)
+# Program Settings
 
-childcare_eda <- read.csv(
-  "../data/MDPS Early Childhood Dev.csv",
-  stringsAsFactors = FALSE
-) |>
-  filter(
-    !is.na(address),
-    address != ""
-  )
-
-dir.create("../plots")
-```
-
-    Warning in dir.create("../plots"): '..\plots' already exists
-
-# Overview of Program Settings
-
-The table here summarizes the number of program records in each setting,
-These counts provide the context for the percentage charts: a large
-percentage within a small setting does not necessarily show lots more
-programs.
+The table here summarizes the number of program records by each setting
+within the Zipcodes. These counts provide the context for the
+distribution of programs in the Zipcodes. The data has been pivoted so
+each zipcode is seen more then once for all the settings within it, the
+program records then shows the count of programs in that setting and
+Zipcode.
 
 | Zipcodes | Program Settings                  | Program Records |
 |---------:|:----------------------------------|----------------:|
@@ -147,41 +129,17 @@ programs.
 |    21239 | Pre-K                             |               3 |
 |    21239 | Letter of Compliance Facility     |               1 |
 
-Program records by Zipcode and setting. Source: MDPS Early Childhood
-Development dataset.
+Program records by Zipcode and setting.Source: MDPS Early Childhood
+Development dataset, 2026.
 
 # Program Setting Across Zipcodes
 
-This chart compares the share of program records belonging to each
-setting within each Zipcode. Each bar totals 100% , allowing for the mix
-to be compiled and show the comparison across places.
-
-Zipcodes with codes with very different numbers of records receive the
-same amount of space . The chart is showing the composition rather then
-the total number of programs.
-
-``` r
-#If ggmosiac isnt downlaoed use this to get it pulling from github.
-#install.packages("pak")
-#pak::pkg_install("haleyjeppson/ggmosaic")
-
-library(ggmosaic)
-
-program_setting_counts <- childcare_eda |>
-  dplyr::filter(!is.na(zipcode),
-                trimws(as.character(zipcode)) !="",
-                !is.na(gen_program_setting_detail),
-                gen_program_setting_detail !=""
-                ) |>
-  dplyr::mutate(zipcode = factor(zipcode),
-                gen_program_setting_detail = factor(gen_program_setting_detail)
-                ) |> 
-  dplyr::group_by(zipcode, gen_program_setting_detail) |>
-  dplyr::summarise(program_records = dplyr::n(),
-                   .groups = "drop")
-```
-
-add summary of setup
+Thus mosaic compares the mux of childcare programs settings across The
+baltimore areas Zipcodes. colored segments heights show each setting’s
+percentage within a Zip. Lables show the number of program records
+follwoed by the zip code. The bigger sections in the chart are meant to
+represent the zicosdes with the larger protion of programs, though for
+readablity the Zipcodes with fewer then 12 records were enla
 
 ``` r
 mosaic_data <- program_setting_counts |> 
@@ -239,8 +197,7 @@ program_setting_chart <- ggplot(data = mosaic_data) +
 program_setting_chart
 ```
 
-<img
-src="03_final_draft_files/figure-commonmark/program-setting-share-vs-count-1.png"
+<img src="03_final_draft_files/figure-commonmark/mosaic-chart-1.png"
 data-fig-alt="Mosaic chart of childcare settings across Baltimore area zip Codes. Wider Zip sections represnet more program records. Colors and there heights show the percentage of setting type within each zipcode. The width represents the number of records in each zipcode setting combined, this does not show childcare capacity or vacancies." />
 
 ``` r
@@ -263,3 +220,7 @@ src="03_final_draft_files/figure-commonmark/heatmap_program-avaibility-1.png"
 data-fig-alt="The Heatmaps here show the reported childcare opertaing schedules by program setting across Baltimore area zip codes. Each panel shows Monday-Sunday and hours from 0-23. Darker blues indicate a higher precentage of programs with useable schedules open at the start of the hour. Lighter grey represents zero precent open." />
 
 summary  
+
+<img
+src="03_final_draft_files/figure-commonmark/availability-weekdays-weekends-1.png"
+data-fig-alt="Here are two line charts that compare avergae reported childcare avalability on weekdays and weekends across Baltimore area program settings. Color and line patterns distinguish settings. Poth parts show time of day in hour format and prencetage from 0 to 100." />
