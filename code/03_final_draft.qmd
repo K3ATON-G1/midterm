@@ -1,8 +1,16 @@
 ---
 title: Final draft
-author: Your name
+author: Keaton Green
 format: gfm
 ---
+
+# MDPS Early Childhood Development: 
+
+## Childcare Program Settings and Weekly Schedules
+
+Childcare schedules and programs in Maryland Zipcodes around Baltimore City can be very fundamentally important to a family's daily routine. This project examines how reported operating schedules differ accross program settings (Not type as the overlap of program type made the data to complex). The focus here is particulary intreatsed in teh examinatipn between the weedays and the weekends. It also comapres the mix of settings across zip coddes in the Balimore area MDPS Early Childhood Development dataset.
+
+The charts describe program and reported schedules. They do not measure current vacancies, renrollement, or the actaul obained childcare places from families. The dataset for this was suppuied in 2026; the dates for the data was collected or updated was not specified.
 
 ```{r}
 #| label: setup
