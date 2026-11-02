@@ -8,7 +8,7 @@ date: 2026-11-01
 ## Data
 
 - Used MDPS Early Childhood Development dataset 
-    - suppied by Emily DeMarinas (2026)
+    - supplied by Emily DeMarinas (2026)
     - collection and updates were not documented 
 - Removed rows without addresses.
     - This excluded the footnotes stored at the bottom of the CSV.
@@ -21,8 +21,8 @@ date: 2026-11-01
 - Found 44 missing closing-time entries during exploration.
     - Excluded program-days without usable opening and closing times.
     - Other usable days from the same program could still be included.
-    - Missing schedules do not mean the program is closed.
-- Counts represnet program records. 
+    - Missing schedules does not mean the program is closed.
+- Counts represent program records. 
     - They do not measure capacity, vacancies, or enrollment. 
 
 ## Code
@@ -30,16 +30,16 @@ date: 2026-11-01
 - libraries used:
     - ggplot2, for charts and styling.
     - dplyr, for filtering, calculations, and grouping data.
-    - tidyr, used to structure the data and organize the scheudles. 
-    - ggmosaic, used ofr mosaic chart
-    - kitr::kable(), used to make markdown table.
+    - tidyr, used to structure the data and organize the schedules. 
+    - ggmosaic, used for mosaic chart
+    - kitr::kable(), used to make a markdown table.
 - EDA = exploration 
-- Sketchs = SKetching out improved charts 
+- Sketches = SKetching out improved charts 
 - Final_draft = The final charts produced to be distributed. 
-- Put the final preperations for all charts on the final notebook into a setup
+- Put the final preparations for all charts on the final notebook into a setup
   chunk. 
-    - Runing that one setup before the charts prepares them all. 
-    - each final chart has its own labeles 
+    - Running that one setup before the charts prepares them all. 
+    - each final chart has its own labels 
 - Created Setting_colors 
     - a color scheme assigned to the setting names so they would be the same for
       all charts. 
@@ -72,7 +72,7 @@ date: 2026-11-01
 - Added missing setting-day-hour combinations back for display.
     - Kept those percentages missing.
 - Used the same grey for missing information and 0% open.
-    - They look the same but remain different values in the data.
+    - They look the same but retain different values in the data.
 
 # Line chart
 - Used the heatmap’s daily percentages.
@@ -82,7 +82,7 @@ date: 2026-11-01
     - This is an average of daily percentages, not a combined count of all 
       programs.
 - Used both color and line pattern to distinguish settings.
-- Kept weekdays and weekends in separate panels with the same percentage scale.
+- Keep weekdays and weekends in separate panels with the same percentage scale.
   Saving and running
 - Saved each chart with ggsave() as a PNG.
     - Filenames include green and a meaningful chart label.
@@ -102,7 +102,7 @@ date: 2026-11-01
 - Give missing schedules a different color from 0% open.
     - Especially important for weekends.
     - Missing information should not look like confirmed closure.
-        - this would change the weekends values. 
+        - this would change the weekend's values. 
 - show how many usable schedules contribute to each percentage.
     - Would make small groups easier to interpret.
 - Improve overlapping lines.
@@ -117,8 +117,9 @@ date: 2026-11-01
 
 ## Other notes
 
--A high percentage open does not mean many programs operating.
+-A high percentage open does not mean many programs are operating.
     The table and Mosaic are examples. 
--color names and arguments use diffrnet code a issue i had was that carto 
+-color names and arguments use different code a issue i had was that carto 
 pallet uses "Bold"" and text styling "bold" that was confusing. 
 - 
+
