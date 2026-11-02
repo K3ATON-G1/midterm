@@ -41,11 +41,11 @@ library(ggmosaic)
         )
 
       setting_colors <- c(
-        "Large Family Child Care Home" = "#C4B0E2",
-        "Letter of Compliance Facility" = "#A08DCF",
-        "Licensed Child Care Center" = "#7B6BBD",
-        "Pre-K" = "#584BAA",
-        "Registered Family Child Care Home" = "#352B95"
+        "Registered Family Child Care Home" = "navy",
+        "Licensed Child Care Center" = "#3D3D9D",
+        "Pre-K" = "#7979BA",
+        "Large Family Child Care Home" = "#B6B6D8",
+        "Letter of Compliance Facility" = "grey90"
       )
 
 # mosaic-setup
@@ -126,16 +126,55 @@ The table here summarizes the number of program records by each setting within t
 #| label: program-setting-table
 
 program_setting_table <- childcare_eda |>
-  dplyr::filter(!is.na(gen_program_setting_detail),
+  dplyr::filter(!is.na(zipcode),!is.na(gen_program_setting_detail),
                 gen_program_setting_detail != ""
                 ) |>
   dplyr::group_by(zipcode, gen_program_setting_detail) |>
-  dplyr::summarise(program_records = dplyr::n(),
-                   .groups = "drop"
-  )|>
-  dplyr::arrange(zipcode, dplyr::desc(program_records))
-  knitr::kable(program_setting_table, format = "pipe", col.names = c("Zipcodes", "Program Settings", "Program Records"),
-               caption = "Program records by Zipcode and setting.Source: MDPS Early Childhood Development dataset, 2026."
+  dplyr::summarise(
+    program_records = n(),
+    .groups = "drop"
+  )
+  
+program_setting_table <- program_setting_counts |>
+  tidyr::pivot_wider(
+    names_from = gen_program_setting_detail,
+    values_from = program_records,
+    values_fill = 0
+  ) |>
+  dplyr::rowwise() |>
+  dplyr::mutate(
+    Total = sum(c(
+      `Registered Family Child Care Home`,
+      `Licensed Child Care Center`,
+      `Pre-K`,
+      `Large Family Child Care Home`,
+      `Letter of Compliance Facility`
+    )),
+    Mean = round(Total / 5, 1),
+    Median = median(c(
+      `Registered Family Child Care Home`,
+      `Licensed Child Care Center`,
+      `Pre-K`,
+      `Large Family Child Care Home`,
+      `Letter of Compliance Facility`
+    ))
+  ) |>
+  dplyr::ungroup() |>
+  dplyr::arrange(zipcode)
+
+  knitr::kable(program_setting_table, format = "html", escape = FALSE, align = "c", 
+               table.attr = 'style="border-collapse: separate; border-spacing: 15px 0;"',
+               col.names = c(
+    "ZIP<br>code",
+    "Licensed&nbsp;Child<br>Care&nbsp;Center",
+    "Pre<br>K",
+    "Registered&nbsp;Family<br>Child&nbsp;Care&nbsp;Home",
+    "Large&nbsp;Family<br>Child&nbsp;Care&nbsp;Home",
+    "Letter&nbsp;of<br>Compliance&nbsp;Facility",
+    "Total",
+    "Mean",
+    "Median"),
+               caption = "Childcare Program records by Zipcode and setting in the Baltimore Area.<br>Sourceed by MDPS Early Childhood Development dataset, 2026.<br> "
   )
 ```
 
@@ -149,54 +188,91 @@ The bigger sections in the chart are meant to represent the Zipcodes with the la
 #| label: mosaic-chart
 #| fig-height: 8
 #| fig-width: 14
-#| fig-alt: "Mosaic chart of childcare settings across Baltimore area zip Codes. Wider Zip sections represnet more program records. Colors and there heights show the percentage of setting type within each zipcode. The width represents the number of records in each zipcode setting combined, this does not show childcare capacity or vacancies."
+#| fig-alt: "Mosaic chart of childcare program settings by ZIP code. ZIPs with at least 12 program records are shown, ordered from most to fewest records. Width represents actual record counts; colored segment heights show setting shares within each ZIP. Labels show counts in parentheses."
 
-mosaic_data <- program_setting_counts |> 
+mosaic_data <- program_setting_counts |>
   dplyr::group_by(zipcode) |>
-  dplyr::mutate(total = sum(program_records),
-                weight = program_records / total * pmax(total, 12),
-                zip_label = paste0(total, " in ", zipcode)
+  dplyr::mutate(
+    total = sum(program_records),
+    zip_label = as.character(zipcode)
   ) |>
   dplyr::ungroup() |>
-  dplyr::arrange(zipcode) |>
-  dplyr::mutate(zip_label = factor(zip_label, levels = unique(zip_label))
-                )
+  dplyr::filter(total >= 15) |>
+  dplyr::arrange(dplyr::desc(total), zipcode) |>
+  dplyr::mutate(
+    zip_label = factor(
+      zip_label,
+      levels = unique(zip_label)
+    ),
+    gen_program_setting_detail = reorder(
+      gen_program_setting_detail,
+      -program_records,
+      FUN = sum))
+
+zip_totals <- mosaic_data |>
+  dplyr::distinct(zip_label, total) |>
+  dplyr::arrange(zip_label) |>
+  dplyr::mutate(
+    midpoint = (cumsum(total) - total / 2) / sum(total)
+  )
+
 program_setting_chart <- ggplot(data = mosaic_data) +
-  geom_mosaic(aes(x = product(zip_label),
-                  fill = gen_program_setting_detail,
-                  weight = weight),
-              color = "white",
-              offset = 0) +
-  scale_fill_manual(values = setting_colors)+
+  geom_mosaic(
+    aes(
+      x = product(zip_label),
+      fill = gen_program_setting_detail,
+      weight = program_records
+    ),
+    color = "white",
+    offset = 0
+  ) +
+  geom_text(
+    data = zip_totals,
+    aes(
+      x = midpoint,
+      y = 0.06,
+      label = total
+    ),
+    inherit.aes = FALSE,
+    color = "white",
+    angle = 0,
+    fontface = "bold",
+    size = 10/.pt
+  ) +
+  scale_fill_manual(values = setting_colors) +
   labs(
-    title = "Childcare Program Settings by Zipcodes",
-    subtitle = "Wider zipcode sections contain more recorded programs; color show the composition of program settings. Parentheses after the zipcode show the program record counts.",
-    x = "Zipcodes",
+    title = "Childcare Program Settings and Counts by ZIP Code",
+    subtitle = "Shown here are Baltimore area zipcodes with record Childcare Care Centers program counts; colored heights show types of setting shares.\nCounts are the white text that are within the bars.",
+    x = "ZIP code",
     y = NULL,
     fill = NULL,
     caption = paste0(
-      "Colored height shows setting share within each ZIP. Labels show actual record counts.\nZIPs with fewer than 12 records are enlarged; widths are not exactly proportional to counts.\n", "Counts represent program records, not childcare capacity or available places.\n", 
-      "Source: MDPS Early Childhood Development dataset,(2026).")
+      "Only ZIP codes with 15 or more program records are shown.\nZIP widths reflect record counts; ZIPs and settings are ordered by their totals.\nCounts describe program records, not childcare capacity or available spaces.\nProgram settings describe different types of childcare, rather than levels of quality.\n\nSource: MDPS Early Childhood Development dataset, 2026."
+    )
   ) +
-  
   theme_minimal(base_size = 13) +
   theme(
+    legend.box.spacing = grid::unit(-.5, "lines"),
     panel.grid = element_blank(),
     axis.title.y = element_blank(),
     axis.title.x = element_blank(),
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
     axis.text.x = element_text(
-      angle = 90,
-      hjust = 1,
-      vjust = 0.5,
-      face = "bold"
+      angle = 90, hjust = .8, vjust = .5,
+      face = "bold",
+      margin = margin(t = 0)
     ),
-    plot.title = element_text(face = "bold", color = "navy"),
-    legend.position = "bottom",
-    plot.caption = element_text(hjust = 0)
+    plot.title = element_text(
+      face = "bold",
+      color = "navy"
+    ),
+    legend.position = "right",
+    plot.caption = element_text(
+      hjust = 0,
+      margin = margin(t = 25))
   ) +
-  guides(fill = guide_legend(nrow = 1))
+  guides(fill = guide_legend(reverse = TRUE, nrow = 5))
 
 program_setting_chart
 
@@ -210,7 +286,7 @@ ggsave(
 )
 ```
 
-# Weekly Childcare Availability 
+# Weekly Childcare Availability
 
 The heatmap here shows the operating schedule throughout the week for each type of setting. Each time shows the percentage of that setting type that is open on that day. The darker the color the higher the percentage of open programs, gray shows the lack of open programs.
 
@@ -220,14 +296,22 @@ The heatmap here shows the operating schedule throughout the week for each type 
 #| fig-height: 10
 #| fig-alt: "The Heatmaps here show the reported childcare opertaing schedules by program setting across Baltimore area zip codes. Each panel shows Monday-Sunday and hours from 0-23. Darker blues indicate a higher precentage of programs with useable schedules open at the start of the hour. Lighter grey represents zero precent open."
 
+availability <- availability |>
+  dplyr::mutate(
+    setting = factor(
+      setting,
+      levels = rev(c( "Registered Family Child Care Home", "Licensed Child Care Center", "Pre-K", "Large Family Child Care Home", "Letter of Compliance Facility")))
+  )
+
 availability_heatmap <- ggplot(
   availability,
   aes(x = hour, y = day, fill = percent_open)
 ) +
   geom_tile(color = "white", linewidth = 0.3) +
-  facet_wrap(~ setting, ncol = 1) +
+  facet_wrap(~ setting, ncol = 1, axes = "all_x") +
   scale_x_continuous(
     breaks = seq(0, 23, 2),
+    labels = function(x) paste(x, ":00"),
     expand = c(0, 0)
   ) +
   scale_y_discrete(
@@ -250,12 +334,12 @@ availability_heatmap <- ggplot(
   ) +
   labs(
     title = "Weekly Childcare Availability",
-    subtitle = "Reported schedules by program setting across the Zipcodes i the Baltimore Area",
+    subtitle = "Reported schedules by Childcare program settings in the Baltimore Area",
     x = "Time of day",
     y = NULL,
     fill = "% Of Open Programs",
     caption = paste0(
-      "Tiles show the percentage open at the start of each hour among programs with usable times for that day.\nGrey represents either 0% open or missing schedules. Schedules do not indicate vacancies.\n", 
+      "Tiles show the percentage of programs open at the start of each hour among the diffrent program settings.\nGrey represents either 0% open or missing schedules. Schedules do not indicate vacancies.\nProgram settings describe different types of childcare, rather than levels of quality.\n\n", 
       "Source: MDPS Early Childhood Development dataset, (2026)" ) ) +
   theme(
     panel.grid = element_blank(),
@@ -285,9 +369,9 @@ ggsave(
 )
 ```
 
-# Weekday and Weekend Availability 
+# Weekday and Weekend Availability
 
-This chart while similar to the last was designed to highlight the averages of programs open versus each other instead of just the time/day availability. The daily percentages are averaged equally within each group, excluding missing days The high percentage over weekends does not mean there are the same number of programs running during the weekend and weekends, instead its looking at the percentage normalized by the number open during those times. \
+This chart while similar to the last was designed to highlight the averages of programs open versus each other instead of just the time/day availability. The daily percentages are averaged equally within each group, excluding missing days The high percentage over weekends does not mean there are the same number of programs running during the weekend and weekends, instead its looking at the percentage normalized by the number open during those times.\
 
 ```{r}
 #| label: availability-weekdays-weekends
@@ -361,6 +445,6 @@ I found this data really interesting because it showed big differences in where 
 
 The mosaic is the chart I’m most proud of. I knew from the start that I wanted a stacked chart, but after seeing the mosaic and reading its documentation, I got excited to try it. The ZIP labels and legend still aren’t exactly what I wanted. With more time, I would add a light-grey background behind every other ZIP to make the labels easier to connect to the chart. I also wanted the legend to show total counts to the left of each color key and the setting name to the right.
 
-I love the heatmap and am really happy with how it turned out! The examples in the[ JustViz course notes](https://umbc-viz.github.io/ges778/notes/proj1_work_sesh.html) were a huge help with putting it together (Seaberry, 2026).
+I love the heatmap and am really happy with how it turned out! The examples in the[JustViz course notes](https://umbc-viz.github.io/ges778/notes/proj1_work_sesh.html) were a huge help with putting it together (Seaberry, 2026).
 
 The line chart is the one I’m least happy with visually, but it shows something I really wanted to explore. The weekly heatmap kept making me wonder how weekdays and weekends compared, so I’m happy I got to visualize that, even if the design still needs some work.

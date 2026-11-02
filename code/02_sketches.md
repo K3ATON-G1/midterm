@@ -13,6 +13,13 @@ schedules differ across settings, especially between weekends and
 weekdays? I also like the idea of pairing these with zipcode comparisons
 to show the mix of program settings as they vary across places.
 
+**Outside Observer,**
+
+Emily DeMarinas, Public Policy UMBC. Was the one who provided the data
+for her work for District 9 where they planned to use the data for
+analysis. When doing the spatial analysis this will be the area of
+interest.
+
 ![Sketch 3](../docs/Sketch_3.jpeg)
 
 ![Sketch 1](../docs/Sketch_1.jpeg)
@@ -59,7 +66,9 @@ program_setting_chart <- childcare_eda |>
     )
   ) +
   geom_bar(position = "fill")
+```
 
+``` r
 program_setting_chart +
   scale_y_continuous(
     labels = scales::percent,
@@ -67,10 +76,10 @@ program_setting_chart +
   ) +
   guides(fill = guide_legend(reverse = TRUE)) +
   scale_fill_manual(
-  values = colorRampPalette(c("navy", "grey95"))(
-    dplyr::n_distinct(childcare_eda$gen_program_setting_detail)
-  )
-) +
+    values = colorRampPalette(c("navy", "grey95"))(
+      dplyr::n_distinct(childcare_eda$gen_program_setting_detail)
+    )
+  ) +
   labs(
     x = "ZIP code",
     y = NULL,
@@ -85,7 +94,11 @@ program_setting_chart +
     panel.grid.minor = element_blank(),
     panel.grid.major.y = element_line(color = "black"),
     plot.title.position = "plot",
-    plot.title = element_text(face = "bold", size = 20, color = "navy"),
+    plot.title = element_text(
+      face = "bold",
+      size = 20,
+      color = "navy"
+    ),
     plot.caption.position = "plot",
     plot.caption = element_text(
       hjust = 0,
@@ -123,11 +136,21 @@ interpret.
 
 **Notes from outsiders view,**
 
+> I assume at some point in narrative you’ll give a bried overview of
+> setting types, that’d be helpful
+>
+> I might also change the color of the registered home bar. upon first
+> glance it looks blank
+>
+> The comparison between the Registered Family homes comparison to the
+> others is not apparent i think the color is why.
+>
+> I didn’t even see the white space i the legend i couldn’t tell that
+> those weren’t blank.
+
 # Chart 2, Heatmap
 
 ``` r
-#Weelky analysis setup. 
-
 day_order <- c(
   "Monday", "Tuesday", "Wednesday", "Thursday",
   "Friday", "Saturday", "Sunday"
@@ -144,13 +167,17 @@ availability <- childcare_eda |>
     names_sep = "\\."
   ) |>
   mutate(
-    opening = as.numeric(as.difftime(trimws(Start), units = "hours")),
-    closing = as.numeric(as.difftime(trimws(End), units = "hours")),
+    opening = as.numeric(
+      as.difftime(trimws(Start), units = "hours")
+    ),
+    closing = as.numeric(
+      as.difftime(trimws(End), units = "hours")
+    ),
     day = factor(day, levels = day_order)
   ) |>
   tidyr::drop_na(opening, closing) |>
   tidyr::uncount(24, .id = "hour") |>
-  mutate(
+  dplyr::mutate(
     hour = hour - 1,
     open = ifelse(
       closing < opening,
@@ -158,8 +185,8 @@ availability <- childcare_eda |>
       hour >= opening & hour < closing
     )
   ) |>
-  group_by(setting, day, hour) |>
-  summarise(
+  dplyr::group_by(setting, day, hour) |>
+  dplyr::summarise(
     percent_open = mean(open) * 100,
     .groups = "drop"
   ) |>
@@ -225,10 +252,12 @@ ggplot(
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text.x = element_text(
-      face = "bold", hjust = 0, size = 12),
+      face = "bold", hjust = 0, size = 12
+    ),
     plot.title.position = "plot",
     plot.title = element_text(
-      face = "bold", size = 20, color = "navy"),
+      face = "bold", size = 20, color = "navy"
+    ),
     plot.subtitle = element_text(margin = margin(b = 35)),
     legend.position = "inside",
     legend.position.inside = c(1, 1.06),
@@ -238,7 +267,7 @@ ggplot(
   )
 ```
 
-![](02_sketches_files/figure-commonmark/heatmap_program-avaibility-1.png)
+![](02_sketches_files/figure-commonmark/heatmap-program-availability-1.png)
 
 The heatmap is the chart I’m the most excited about! the chart shows the
 full week for each setting. Each tile represents the percentage of
@@ -250,7 +279,7 @@ while keeping the individual days visible.
 
 I like this version since i can see the schedule patterns in a more
 comparative way. The downside is that the exact percentages aren’t being
-shown so while they suporttive to the context they aren’t good for
+shown so while they supportive to the context they aren’t good for
 summarizing. The data also had 44 missing fields where the closing time
 wasn’t attached, those were dropped when building the averages. I also
 manually set the weekend values for the settings that didn’t have them
@@ -258,6 +287,14 @@ to be equal to 0 programs available, this was done since the dataset had
 them as null.
 
 **Notes from outsiders view,**
+
+> Really like this representation i think it’s especially easy to
+> interpret.
+>
+> The comparison is great and i can just imagine how useful this is, you
+> could give to schools and parents.
+>
+> I’d love to see them for multiple places.
 
 # Chart 3, Line Chart
 
@@ -284,36 +321,33 @@ availability |>
   ) +
   scale_y_continuous(
     limits = c(0, 100),
-    breaks = seq(0, 100, 25)
+    labels = scales::percent_format(scale = 1)
   ) +
-  scale_color_manual(
-  values = colorRampPalette(c("navy", "#808000"))(
-    dplyr::n_distinct(availability$setting)
-  )
-) +
   labs(
-    title = "Weekday and Weekend Childcare Availability",
-    subtitle = "By MDPS program setting",
-    x = "Time Of Day",
-    y = "% of Open Programs",
+    title = "Childcare Availability: Weekdays vs Weekends",
+    subtitle = "Average percentage open by program setting",
+    x = "Time of day",
+    y = "Average % open",
     color = NULL,
-    caption = paste0(
-      "Daily percentages are averaged equally within weekdays and weekends; missing days are excluded.\n",
-      "Only program-days with usable opening and closing times are included.\n",
-      "Source: MDPS Early Childhood dataset (2026)."
-    )
+    caption = "Source: MDPS Early Childhood dataset (2026)."
   ) +
-  theme_cowplot() +
+  theme_minimal(base_size = 13) +
   theme(
-    panel.grid = element_blank(),
-    strip.background = element_blank(),
-    strip.text = element_text(face = "bold", hjust = 0, size = 12),
+    panel.grid.minor = element_blank(),
     plot.title.position = "plot",
-    plot.title = element_text(face = "bold", size = 20, color = "navy"),
-    legend.position = "bottom",
+    plot.title = element_text(
+      face = "bold",
+      size = 20,
+      color = "navy"
+    ),
+    strip.text = element_text(
+      face = "bold",
+      hjust = 0,
+      size = 15
+    ),
+    plot.caption.position = "plot",
     plot.caption = element_text(hjust = 0)
-  ) +
-  guides(color = guide_legend(ncol = 2))
+  )
 ```
 
 ![](02_sketches_files/figure-commonmark/availability-weekdays-weekends-1.png)
@@ -337,7 +371,15 @@ missing line doesn’t mean zero programs are open.
 I’m keeping this as the simpler comparison, still needing to develop
 this ones theme.
 
-**Notes from outsiders view,**
+**Notes from outsiders view:**
+
+> Colors hard to distinguish, would suggest using more contrasting
+> colors or a dash line or something.
+>
+> This seems like the last one but its not showing me as much.
+>
+> Can you separate the two, weekend and weekday more? Now it looks like
+> its a single chart with two peeks.
 
 # Footnotes
 
