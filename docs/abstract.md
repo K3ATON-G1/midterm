@@ -26,11 +26,12 @@ line chart compares weekday and weekend averages. Feedback was also useful and
 helped led me to revise colors, descriptions, and line patterns to make the 
 comparison easier to follow. 
 
-One important lesson that precentages, missing information, and presentation 
-are all impacted by the visual choices. When Emily looked at the data those were
-the main things she addressed. High percentages do not always represnt many 
-programs. This has something more to say on how i chose to visualize the data 
-then it being an inhearnt issue but it was something i had to address. 
+One important lesson for me was that percentages, missing information, and 
+presentation are all impacted by the visual choices. When Emily looked at the 
+data those were the main things she addressed. High percentages do not always 
+represent many programs. This has something more to say on how i chose to 
+visualize the data then it being an inherent issue but it was something i had 
+to address. 
 
 The project highlights how counts, percentages, and missing information can 
 change hoe this data is presented. The data has a lot of missing schedules so 
